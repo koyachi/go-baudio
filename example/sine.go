@@ -6,11 +6,11 @@ import (
 )
 
 func main() {
-	n := 0
-	b := baudio.NewBaudio(func(t float32) float32 {
-		x := math.Sin(t*262 + math.sin(n))
-		n += math.sin(t)
+	n := float64(0)
+	b := baudio.NewBaudio(func(t float64) float64 {
+		x := math.Sin(t*262 + math.Sin(n))
+		n += math.Sin(t)
 		return x
 	})
-	b.play()
+	b.Play()
 }
