@@ -61,7 +61,7 @@ type B struct {
 }
 
 //func NewBaudio(opts map[string]string) *B {
-func NewBaudio( /*opts map[string]string*/ fn func(float64) float64) *B {
+func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 	b := &B{
 		readable:   true,
 		size:       2048,
