@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os/exec"
+	"strconv"
 )
 
 const (
@@ -251,7 +252,10 @@ func mergeArgs(opts, args []string) {
 
 func (b *B) Play( /*opts []string*/) {
 	fmt.Println("Play!")
-	cmd := exec.Command("play", "-c", "1", "-r", "8k", "-t", "s16", "-")
+	channels := strconv.Itoa(len(b.channels))
+	rate := strconv.Itoa(b.rate)
+	fmt.Printf("channels = %s, rate = %s\n", channels, rate)
+	cmd := exec.Command("play", "-c", channels, "-r", rate, "-t", "s16", "-")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		panic(err)
