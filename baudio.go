@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
+	"os/exec"
 )
 
 const (
@@ -58,9 +60,10 @@ type B struct {
 	chResume   chan func()
 	chData     chan *bytes.Buffer
 	chNextTick chan bool
+	pipeReader *io.PipeReader
+	pipeWriter *io.PipeWriter
 }
 
-//func NewBaudio(opts map[string]string) *B {
 func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 	b := &B{
 		readable:   true,
@@ -76,6 +79,7 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 		chData:     make(chan *bytes.Buffer),
 		chNextTick: make(chan bool),
 	}
+	b.pipeReader, b.pipeWriter = io.Pipe()
 	//TODO
 	/*
 		if val, ok := opts["size"]; ok {
@@ -89,10 +93,12 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 	go func() {
 		if b.paused {
 			b.chResume <- func() {
-				b.main()
+				go b.main()
+				b.loop()
 			}
 		} else {
-			b.main()
+			go b.main()
+			b.loop()
 		}
 	}()
 	b.Push(0, fn)
@@ -101,18 +107,23 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 
 func (b *B) main() {
 	for {
-
+		fmt.Println("main loop header")
 		select {
-		case <-b.chNextTick:
-			b.loop()
 		case <-b.chEnd:
+			fmt.Println("main chEnd")
 			break
 		case fn := <-b.chResume:
+			fmt.Println("main chResume")
 			fn()
 		case buf := <-b.chData:
-			// send buf to sox-play process. pipe?
-			//DUMMY
-			fmt.Printf("%0x\n", buf)
+			fmt.Println("main chData")
+			b.pipeWriter.Write(buf.Bytes())
+		case <-b.chNextTick:
+			fmt.Println("main chNextTick")
+			//b.loop()
+		default:
+			fmt.Println("main default")
+			go b.loop()
 		}
 	}
 }
@@ -173,16 +184,21 @@ func (b *B) loop() {
 	buf := b.tick()
 	if b.destroyed {
 		// no more events
+		fmt.Println("loop destroyed")
 	} else if b.paused {
+		fmt.Println("loop paused")
 		b.chResume <- func() {
 			b.chData <- buf
 			b.chNextTick <- true
 		}
 	} else {
+		fmt.Println("loop !(destroyed || paused)")
 		b.chData <- buf
 		if b.ended {
+			fmt.Println("loop ended")
 			b.chEnd <- true
 		} else {
+			fmt.Println("loop !ended")
 			b.chNextTick <- true
 		}
 	}
@@ -191,7 +207,8 @@ func (b *B) loop() {
 func (b *B) tick() *bytes.Buffer {
 	byteBuffer := make([]byte, b.size*len(b.channels))
 	buf := bytes.NewBuffer(byteBuffer)
-	for i := 0; i < buf.Len(); i++ {
+	bufLen := buf.Len()
+	for i := 0; i < bufLen; i++ {
 		lenCh := len(b.channels)
 		ch := b.channels[(int(i/2))%lenCh]
 		t := float64(b.t) + math.Floor(float64(i/2))/float64(b.rate)/float64(lenCh)
@@ -233,6 +250,37 @@ func mergeArgs(opts, args []string) {
 }
 
 func (b *B) Play( /*opts []string*/) {
+	fmt.Println("Play!")
+	cmd := exec.Command("play", "-c", "1", "-r", "8k", "-t", "s16", "-")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		panic(err)
+	}
+	defer stdin.Close()
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Start(); err != nil {
+		panic(err)
+	}
+	defer func() {
+		if p := cmd.Process; p != nil {
+			p.Kill()
+		}
+	}()
+
+	readBuf := make([]byte, b.size)
+	for {
+		fmt.Println("play loop header")
+		n, err := b.pipeReader.Read(readBuf)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("read n = %d\n", n)
+		_, err = stdin.Write(readBuf)
+		if err != nil {
+			panic(err)
+		}
+	}
 }
 
 func (b *B) Record(file string, opts []string) {
