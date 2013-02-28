@@ -262,7 +262,29 @@ func signed(n float64) float64 {
 	return math.Max(-b, math.Ceil(b*n-1))
 }
 
-func mergeArgs(opts, args []string) {
+func mergeArgs(opts, args map[string]string) []string {
+	for k, _ := range opts {
+		args[k] = opts[k]
+	}
+	var results []string
+	for k, _ := range args {
+		switch k {
+		case "-":
+			results = append(results, k)
+		case "-o":
+			results = append(results, k, args[k])
+		default:
+			var dash string
+			if len(k) == 1 {
+				dash = "-"
+			} else {
+				dash = "--"
+			}
+			results = append(results, dash+k, args[k])
+		}
+	}
+	fmt.Printf("results = %v\n", results)
+	return results
 }
 
 func (b *B) Play( /*opts []string*/) {
@@ -270,7 +292,12 @@ func (b *B) Play( /*opts []string*/) {
 	channels := strconv.Itoa(len(b.channels))
 	rate := strconv.Itoa(b.rate)
 	fmt.Printf("channels = %s, rate = %s\n", channels, rate)
-	cmd := exec.Command("play", "-c", channels, "-r", rate, "-t", "s16", "-")
+	cmd := exec.Command("play", mergeArgs(map[string]string{}, map[string]string{
+		"c": channels,
+		"r": rate,
+		"t": "s16",
+		"-": "DUMMY",
+	})...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		panic(err)
