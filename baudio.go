@@ -67,8 +67,10 @@ type B struct {
 
 func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 	b := &B{
-		readable:   true,
-		size:       2048,
+		readable: true,
+		size:     2048,
+		//size:       1024,
+		//size:       4086,
 		rate:       44000,
 		t:          0,
 		i:          0,
@@ -108,23 +110,27 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 
 func (b *B) main() {
 	for {
-		fmt.Println("main loop header")
+		// 2013-02-28 koyachi ここで何かしないとループまわらないのなぜ
+		//L1:
+		//fmt.Println("main loop header")
+		fmt.Printf(".")
 		select {
 		case <-b.chEnd:
-			fmt.Println("main chEnd")
+			//fmt.Println("main chEnd")
 			break
 		case fn := <-b.chResume:
-			fmt.Println("main chResume")
+			//fmt.Println("main chResume")
 			fn()
 		case buf := <-b.chData:
-			fmt.Println("main chData")
+			//fmt.Println("main chData")
 			b.pipeWriter.Write(buf.Bytes())
 		case <-b.chNextTick:
-			fmt.Println("main chNextTick")
-			//b.loop()
-		default:
-			fmt.Println("main default")
+			//fmt.Println("main chNextTick")
 			go b.loop()
+		default:
+			//fmt.Println("main default")
+			//go b.loop()
+			//goto L1
 		}
 	}
 }
@@ -185,35 +191,36 @@ func (b *B) loop() {
 	buf := b.tick()
 	if b.destroyed {
 		// no more events
-		fmt.Println("loop destroyed")
+		//fmt.Println("loop destroyed")
 	} else if b.paused {
-		fmt.Println("loop paused")
+		//fmt.Println("loop paused")
 		b.chResume <- func() {
 			b.chData <- buf
 			b.chNextTick <- true
 		}
 	} else {
-		fmt.Println("loop !(destroyed || paused)")
+		//fmt.Println("loop !(destroyed || paused)")
 		b.chData <- buf
 		if b.ended {
-			fmt.Println("loop ended")
+			//fmt.Println("loop ended")
 			b.chEnd <- true
 		} else {
-			fmt.Println("loop !ended")
+			//fmt.Println("loop !ended")
 			b.chNextTick <- true
 		}
 	}
 }
 
 func (b *B) tick() *bytes.Buffer {
-	byteBuffer := make([]byte, b.size*len(b.channels))
+	bufSize := b.size * len(b.channels)
+	byteBuffer := make([]byte, 0)
 	buf := bytes.NewBuffer(byteBuffer)
-	bufLen := buf.Len()
-	for i := 0; i < bufLen; i++ {
+	for i := 0; i < bufSize; i += 2 {
+		lrIndex := int(i / 2)
 		lenCh := len(b.channels)
-		ch := b.channels[(int(i/2))%lenCh]
-		t := float64(b.t) + math.Floor(float64(i/2))/float64(b.rate)/float64(lenCh)
-		//counter := b.i + int(math.Floor(float64(i/2)/float64(lenCh)))
+		ch := b.channels[lrIndex%lenCh]
+		t := float64(b.t) + math.Floor(float64(lrIndex))/float64(b.rate)/float64(lenCh)
+		//counter := b.i + int(math.Floor(float64(lrIndex)/float64(lenCh)))
 
 		value := float64(0)
 		n := float64(0)
@@ -233,7 +240,7 @@ func (b *B) tick() *bytes.Buffer {
 				value = x
 			*/
 		}
-		err := binary.Write(buf, binary.LittleEndian, clamp(value))
+		err := binary.Write(buf, binary.LittleEndian, int16(clamp(value)))
 		if err != nil {
 			panic(err)
 		}
@@ -245,6 +252,14 @@ func (b *B) tick() *bytes.Buffer {
 
 func clamp(x float64) float64 {
 	return math.Max(math.Min(x, math.Pow(2, 15)-1), -math.Pow(2, 15))
+}
+
+func signed(n float64) float64 {
+	b := math.Pow(2, 15)
+	if n > 0 {
+		return math.Min(b-1, math.Floor(b*n-1))
+	}
+	return math.Max(-b, math.Ceil(b*n-1))
 }
 
 func mergeArgs(opts, args []string) {
@@ -272,14 +287,15 @@ func (b *B) Play( /*opts []string*/) {
 		}
 	}()
 
-	readBuf := make([]byte, b.size)
+	readBuf := make([]byte, b.size*len(b.channels))
 	for {
-		fmt.Println("play loop header")
-		n, err := b.pipeReader.Read(readBuf)
+		//fmt.Println("play loop header")
+		//n, err := b.pipeReader.Read(readBuf)
+		_, err := b.pipeReader.Read(readBuf)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Printf("read n = %d\n", n)
+		//fmt.Printf("read n = %d\n", n)
 		_, err = stdin.Write(readBuf)
 		if err != nil {
 			panic(err)
@@ -288,12 +304,4 @@ func (b *B) Play( /*opts []string*/) {
 }
 
 func (b *B) Record(file string, opts []string) {
-}
-
-func signed(n float64) float64 {
-	b := math.Pow(2, 15)
-	if n > 0 {
-		return math.Min(b-1, math.Floor(b*n-1))
-	}
-	return math.Max(-b, math.Ceil(b*n-1))
 }
