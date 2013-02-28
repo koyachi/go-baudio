@@ -51,7 +51,7 @@ type B struct {
 	readable   bool
 	size       int
 	rate       int
-	t          int
+	t          float64
 	i          int
 	paused     bool
 	ended      bool
@@ -93,18 +93,19 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 		}
 	*/
 
+	b.Push(0, fn)
 	go func() {
 		if b.paused {
 			b.chResume <- func() {
-				go b.main()
-				b.loop()
+				go b.loop()
+				b.main()
 			}
 		} else {
-			go b.main()
-			b.loop()
+			go b.loop()
+			b.main()
 		}
 	}()
-	b.Push(0, fn)
+	//go b.loop()
 	return b
 }
 
@@ -127,6 +128,7 @@ func (b *B) main() {
 		case <-b.chNextTick:
 			//fmt.Println("main chNextTick")
 			go b.loop()
+			//b.loop()
 		default:
 			//fmt.Println("main default")
 			//go b.loop()
@@ -246,7 +248,7 @@ func (b *B) tick() *bytes.Buffer {
 		}
 	}
 	b.i += b.size / 2
-	b.t += b.size / 2 / b.rate
+	b.t += float64(b.size) / float64(2) / float64(b.rate)
 	return buf
 }
 
