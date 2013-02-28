@@ -1,6 +1,7 @@
 # go-baudio
 
-Go porting from [baudio](https://github.com/substack/baudio)
+generate audio streams with functions.
+(Go porting from [baudio](https://github.com/substack/baudio))
 
 
 ## Require
