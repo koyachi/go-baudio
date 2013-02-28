@@ -8,6 +8,7 @@ import (
 	"math"
 	"os/exec"
 	"strconv"
+	"time"
 )
 
 const (
@@ -59,7 +60,6 @@ type B struct {
 	channels   []*BChannel
 	chEnd      chan bool
 	chResume   chan func()
-	chData     chan *bytes.Buffer
 	chNextTick chan bool
 	pipeReader *io.PipeReader
 	pipeWriter *io.PipeWriter
@@ -79,7 +79,6 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 		destroyed:  false,
 		chEnd:      make(chan bool),
 		chResume:   make(chan func()),
-		chData:     make(chan *bytes.Buffer),
 		chNextTick: make(chan bool),
 	}
 	b.pipeReader, b.pipeWriter = io.Pipe()
@@ -112,9 +111,11 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 func (b *B) main() {
 	for {
 		// 2013-02-28 koyachi ここで何かしないとループまわらないのなぜ
+		// => fmt.PrinfすることでnodeのnextTick的なものがつまれててそのうちPlay()のread待ちまで進めるのでは。
 		//L1:
 		//fmt.Println("main loop header")
-		fmt.Printf(".")
+		//fmt.Printf(".")
+		time.Sleep(1 * time.Millisecond)
 		select {
 		case <-b.chEnd:
 			//fmt.Println("main chEnd")
@@ -122,9 +123,6 @@ func (b *B) main() {
 		case fn := <-b.chResume:
 			//fmt.Println("main chResume")
 			fn()
-		case buf := <-b.chData:
-			//fmt.Println("main chData")
-			b.pipeWriter.Write(buf.Bytes())
 		case <-b.chNextTick:
 			//fmt.Println("main chNextTick")
 			go b.loop()
@@ -197,12 +195,12 @@ func (b *B) loop() {
 	} else if b.paused {
 		//fmt.Println("loop paused")
 		b.chResume <- func() {
-			b.chData <- buf
+			b.pipeWriter.Write(buf.Bytes())
 			b.chNextTick <- true
 		}
 	} else {
 		//fmt.Println("loop !(destroyed || paused)")
-		b.chData <- buf
+		b.pipeWriter.Write(buf.Bytes())
 		if b.ended {
 			//fmt.Println("loop ended")
 			b.chEnd <- true
