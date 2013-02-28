@@ -6,7 +6,7 @@ generate audio streams with functions.
 
 ## Require
 
-- sox
+- [sox](http://sox.sourceforge.net/)
 
 ## Contributing
 
