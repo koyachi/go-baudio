@@ -16,5 +16,6 @@ func main() {
 		x := math.Sin(t*400*math.Pi*2) + math.Sin(t*500)*flag
 		return x
 	})
-	b.Play()
+	b.Play(nil)
+	//b.Record("./tune.wav", nil)
 }

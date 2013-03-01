@@ -12,5 +12,6 @@ func main() {
 		n += math.Sin(t)
 		return x
 	})
-	b.Play()
+	b.Play(nil)
+	//b.Record("./sine.wav", nil)
 }

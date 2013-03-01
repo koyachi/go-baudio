@@ -67,10 +67,8 @@ type B struct {
 
 func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 	b := &B{
-		readable: true,
-		size:     2048,
-		//size:       1024,
-		//size:       4086,
+		readable:   true,
+		size:       2048,
 		rate:       44000,
 		t:          0,
 		i:          0,
@@ -287,17 +285,8 @@ func mergeArgs(opts, args map[string]string) []string {
 	return results
 }
 
-func (b *B) Play( /*opts []string*/) {
-	fmt.Println("Play!")
-	channels := strconv.Itoa(len(b.channels))
-	rate := strconv.Itoa(b.rate)
-	fmt.Printf("channels = %s, rate = %s\n", channels, rate)
-	cmd := exec.Command("play", mergeArgs(map[string]string{}, map[string]string{
-		"c": channels,
-		"r": rate,
-		"t": "s16",
-		"-": "DUMMY",
-	})...)
+func (b *B) runCommand(command string, mergedArgs []string) {
+	cmd := exec.Command(command, mergedArgs...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		panic(err)
@@ -330,5 +319,21 @@ func (b *B) Play( /*opts []string*/) {
 	}
 }
 
-func (b *B) Record(file string, opts []string) {
+func (b *B) Play(opts map[string]string) {
+	b.runCommand("play", mergeArgs(opts, map[string]string{
+		"c": strconv.Itoa(len(b.channels)),
+		"r": strconv.Itoa(b.rate),
+		"t": "s16",
+		"-": "DUMMY",
+	}))
+}
+
+func (b *B) Record(file string, opts map[string]string) {
+	b.runCommand("sox", mergeArgs(opts, map[string]string{
+		"c":  strconv.Itoa(len(b.channels)),
+		"r":  strconv.Itoa(b.rate),
+		"t":  "s16",
+		"-":  "DUMMY",
+		"-o": file,
+	}))
 }
