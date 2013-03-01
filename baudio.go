@@ -18,35 +18,20 @@ const (
 
 type BChannel struct {
 	funcValueType int
-	funcs         []func(float64) float64
+	funcs         []func(float64, int) float64
 }
 
-//func newBChannel(fvt int, fn func(float64) float64) *BChannel {
 func newBChannel(fvt int) *BChannel {
-	//bc := newBChannel(fvt)
 	bc := &BChannel{
 		funcValueType: fvt,
-		funcs:         make([]func(float64) float64, 0),
+		funcs:         make([]func(float64, int) float64, 0),
 	}
-	//bc.funcs = append(bc.funcs, fn)
 	return bc
 }
 
-func (bc *BChannel) push(fn func(float64) float64) {
+func (bc *BChannel) push(fn func(float64, int) float64) {
 	bc.funcs = append(bc.funcs, fn)
 }
-
-/*
-func newBChannel(fvt int) {
-	bc := &BChanenl{
-		funcValueType: fvt,
-		funcs:         make([]func(float64) float64),
-	}
-	b := NewBaudio(opts)
-	b.Push(fn)
-	return b
-}
-*/
 
 type B struct {
 	readable   bool
@@ -65,7 +50,7 @@ type B struct {
 	pipeWriter *io.PipeWriter
 }
 
-func New( /*opts map[string]string*/ fn func(float64) float64) *B {
+func New( /*opts map[string]string*/ fn func(float64, int) float64) *B {
 	b := &B{
 		readable:   true,
 		size:       2048,
@@ -90,7 +75,9 @@ func New( /*opts map[string]string*/ fn func(float64) float64) *B {
 		}
 	*/
 
-	b.Push(0, fn)
+	if fn != nil {
+		b.Push(0, fn)
+	}
 	go func() {
 		if b.paused {
 			b.chResume <- func() {
@@ -154,25 +141,14 @@ func (b *B) resume() {
 	b.chResume <- func() {}
 }
 
-func (b *B) AddChannel(funcValueType int, fn func(float64) float64) {
-	// DEFAULT, TODO: support ohter value type?
-	//bc := newBChannel(funcValueType, fn)
-	bc := newBChannel(FuncValueTypeFloat)
+func (b *B) AddChannel(funcValueType int, fn func(float64, int) float64) {
+	bc := newBChannel(funcValueType)
 	bc.push(fn)
 	b.channels = append(b.channels, bc)
 }
 
-/*
-func (b *B) AddChannel(funcValueType int) {
-	funcValueType = FuncValueTypeFloat
-	bc := newBChannel(funcValueType)
-	b.channels = append(b.channels, bc)
-}
-*/
-
-func (b *B) Push(index int, fn func(float64) float64) {
+func (b *B) Push(index int, fn func(float64, int) float64) {
 	if len(b.channels) <= index {
-		//b.AddChannel(FuncValueTypeFloat)
 		bc := newBChannel(FuncValueTypeFloat)
 		b.channels = append(b.channels, bc)
 	}
@@ -218,13 +194,12 @@ func (b *B) tick() *bytes.Buffer {
 		lenCh := len(b.channels)
 		ch := b.channels[lrIndex%lenCh]
 		t := float64(b.t) + math.Floor(float64(lrIndex))/float64(b.rate)/float64(lenCh)
-		//counter := b.i + int(math.Floor(float64(lrIndex)/float64(lenCh)))
+		counter := b.i + int(math.Floor(float64(lrIndex)/float64(lenCh)))
 
 		value := float64(0)
 		n := float64(0)
 		for j := 0; j < len(ch.funcs); j++ {
-			//x := ch.funcs[j](float64(t), counter)
-			x := ch.funcs[j](float64(t))
+			x := ch.funcs[j](float64(t), counter)
 			n += x
 		}
 		n /= float64(len(ch.funcs))
@@ -232,11 +207,9 @@ func (b *B) tick() *bytes.Buffer {
 		if ch.funcValueType == FuncValueTypeFloat {
 			value = signed(n)
 		} else {
-			/*
-				b := math.Pow(2, ch.funcValueType)
-				x := (math.Floor(n) % b) / b * math.Pow(2, 15)
-				value = x
-			*/
+			b_ := math.Pow(2, float64(ch.funcValueType))
+			x := math.Mod(math.Floor(n), b_) / b_ * math.Pow(2, 15)
+			value = x
 		}
 		err := binary.Write(buf, binary.LittleEndian, int16(clamp(value)))
 		if err != nil {
