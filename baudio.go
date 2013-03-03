@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"os/exec"
+	"os/signal"
+	"runtime"
 	"strconv"
-	"time"
+	//"time"
 )
 
 const (
@@ -44,8 +47,10 @@ type B struct {
 	destroyed  bool
 	channels   []*BChannel
 	chEnd      chan bool
+	chEndSox   chan bool
 	chResume   chan func()
 	chNextTick chan bool
+	chSigInt   chan os.Signal
 	pipeReader *io.PipeReader
 	pipeWriter *io.PipeWriter
 }
@@ -61,9 +66,12 @@ func New( /*opts map[string]string*/ fn func(float64, int) float64) *B {
 		ended:      false,
 		destroyed:  false,
 		chEnd:      make(chan bool),
+		chEndSox:   make(chan bool),
 		chResume:   make(chan func()),
 		chNextTick: make(chan bool),
+		chSigInt:   make(chan os.Signal),
 	}
+	signal.Notify(b.chSigInt, os.Interrupt, os.Kill)
 	b.pipeReader, b.pipeWriter = io.Pipe()
 	//TODO
 	/*
@@ -100,10 +108,16 @@ func (b *B) main() {
 		//L1:
 		//fmt.Println("main loop header")
 		//fmt.Printf(".")
-		time.Sleep(1 * time.Millisecond)
+		//time.Sleep(1 * time.Millisecond)
+		runtime.Gosched()
 		select {
+		case <-b.chSigInt:
+			fmt.Println("main chSigInt")
+			b.terminateMain()
+			break
 		case <-b.chEnd:
-			//fmt.Println("main chEnd")
+			fmt.Println("main chEnd")
+			b.terminateMain()
 			break
 		case fn := <-b.chResume:
 			//fmt.Println("main chResume")
@@ -118,6 +132,12 @@ func (b *B) main() {
 			//goto L1
 		}
 	}
+}
+
+func (b *B) terminateMain() {
+	b.pipeWriter.Close()
+	b.ended = true
+	b.chEndSox <- true
 }
 
 func (b *B) end() {
@@ -211,8 +231,7 @@ func (b *B) tick() *bytes.Buffer {
 			x := math.Mod(math.Floor(n), b_) / b_ * math.Pow(2, 15)
 			value = x
 		}
-		err := binary.Write(buf, binary.LittleEndian, int16(clamp(value)))
-		if err != nil {
+		if err := binary.Write(buf, binary.LittleEndian, int16(clamp(value))); err != nil {
 			panic(err)
 		}
 	}
@@ -264,7 +283,10 @@ func (b *B) runCommand(command string, mergedArgs []string) {
 	if err != nil {
 		panic(err)
 	}
-	defer stdin.Close()
+	defer func() {
+		fmt.Println("runCommand: before stdin.Close()")
+		stdin.Close()
+	}()
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Start(); err != nil {
@@ -272,6 +294,7 @@ func (b *B) runCommand(command string, mergedArgs []string) {
 	}
 	defer func() {
 		if p := cmd.Process; p != nil {
+			fmt.Println("runCommand: before p.Kill()")
 			p.Kill()
 		}
 	}()
@@ -280,33 +303,41 @@ func (b *B) runCommand(command string, mergedArgs []string) {
 	for {
 		//fmt.Println("play loop header")
 		//n, err := b.pipeReader.Read(readBuf)
-		_, err := b.pipeReader.Read(readBuf)
-		if err != nil {
+		if _, err := b.pipeReader.Read(readBuf); err != nil {
 			panic(err)
 		}
 		//fmt.Printf("read n = %d\n", n)
-		_, err = stdin.Write(readBuf)
-		if err != nil {
+		if _, err = stdin.Write(readBuf); err != nil {
+			// TODO: more better error handling
+			if err.Error() == "write |1: broken pipe" {
+				runtime.Gosched()
+				//continue
+				break
+			}
 			panic(err)
 		}
 	}
 }
 
 func (b *B) Play(opts map[string]string) {
-	b.runCommand("play", mergeArgs(opts, map[string]string{
+	go b.runCommand("play", mergeArgs(opts, map[string]string{
 		"c": strconv.Itoa(len(b.channels)),
 		"r": strconv.Itoa(b.rate),
 		"t": "s16",
 		"-": "DUMMY",
 	}))
+	<-b.chEndSox
+	b.pipeReader.Close()
 }
 
 func (b *B) Record(file string, opts map[string]string) {
-	b.runCommand("sox", mergeArgs(opts, map[string]string{
+	go b.runCommand("sox", mergeArgs(opts, map[string]string{
 		"c":  strconv.Itoa(len(b.channels)),
 		"r":  strconv.Itoa(b.rate),
 		"t":  "s16",
 		"-":  "DUMMY",
 		"-o": file,
 	}))
+	<-b.chEndSox
+	b.pipeReader.Close()
 }
