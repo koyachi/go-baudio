@@ -256,13 +256,14 @@ func mergeArgs(opts, args map[string]string) []string {
 	for k, _ := range opts {
 		args[k] = opts[k]
 	}
+	var resultsLast []string
 	var results []string
 	for k, _ := range args {
 		switch k {
 		case "-":
-			results = append(results, k)
+			resultsLast = append(resultsLast, k)
 		case "-o":
-			results = append(results, k, args[k])
+			resultsLast = append(resultsLast, k, args[k])
 		default:
 			var dash string
 			if len(k) == 1 {
@@ -273,6 +274,7 @@ func mergeArgs(opts, args map[string]string) []string {
 			results = append(results, dash+k, args[k])
 		}
 	}
+	results = append(results, resultsLast...)
 	fmt.Printf("results = %v\n", results)
 	return results
 }
@@ -287,8 +289,10 @@ func (b *B) runCommand(command string, mergedArgs []string) {
 		fmt.Println("runCommand: before stdin.Close()")
 		stdin.Close()
 	}()
-	var out bytes.Buffer
-	cmd.Stdout = &out
+	//var out bytes.Buffer
+	//cmd.Stdout = &out
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		panic(err)
 	}
@@ -302,16 +306,14 @@ func (b *B) runCommand(command string, mergedArgs []string) {
 	readBuf := make([]byte, b.size*len(b.channels))
 	for {
 		//fmt.Println("play loop header")
-		//n, err := b.pipeReader.Read(readBuf)
 		if _, err := b.pipeReader.Read(readBuf); err != nil {
 			panic(err)
 		}
-		//fmt.Printf("read n = %d\n", n)
 		if _, err = stdin.Write(readBuf); err != nil {
 			// TODO: more better error handling
 			if err.Error() == "write |1: broken pipe" {
+				fmt.Printf("ERR: stdin.Write(readBuf): err = %v\n", err)
 				runtime.Gosched()
-				//continue
 				break
 			}
 			panic(err)
