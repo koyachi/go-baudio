@@ -84,7 +84,7 @@ func New( /*opts map[string]string*/ fn func(float64, int) float64) *B {
 	*/
 
 	if fn != nil {
-		b.Push(0, fn)
+		b.Push(fn)
 	}
 	go func() {
 		if b.paused {
@@ -167,7 +167,7 @@ func (b *B) AddChannel(funcValueType int, fn func(float64, int) float64) {
 	b.channels = append(b.channels, bc)
 }
 
-func (b *B) Push(index int, fn func(float64, int) float64) {
+func (b *B) PushTo(index int, fn func(float64, int) float64) {
 	if len(b.channels) <= index {
 		bc := newBChannel(FuncValueTypeFloat)
 		b.channels = append(b.channels, bc)
@@ -175,11 +175,9 @@ func (b *B) Push(index int, fn func(float64, int) float64) {
 	b.channels[index].funcs = append(b.channels[index].funcs, fn)
 }
 
-/*
-func (b *B) Push(fn func(float64) float64) {
-	b.Push(0, fn)
+func (b *B) Push(fn func(float64, int) float64) {
+	b.PushTo(len(b.channels), fn)
 }
-*/
 
 func (b *B) loop() {
 	buf := b.tick()
