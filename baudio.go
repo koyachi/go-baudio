@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
 	"strconv"
 	//"time"
@@ -50,7 +49,6 @@ type B struct {
 	chEndSox   chan bool
 	chResume   chan func()
 	chNextTick chan bool
-	chSigInt   chan os.Signal
 	pipeReader *io.PipeReader
 	pipeWriter *io.PipeWriter
 }
@@ -69,9 +67,7 @@ func New( /*opts map[string]string*/ fn func(float64, int) float64) *B {
 		chEndSox:   make(chan bool),
 		chResume:   make(chan func()),
 		chNextTick: make(chan bool),
-		chSigInt:   make(chan os.Signal),
 	}
-	signal.Notify(b.chSigInt, os.Interrupt, os.Kill)
 	b.pipeReader, b.pipeWriter = io.Pipe()
 	//TODO
 	/*
@@ -111,10 +107,6 @@ func (b *B) main() {
 		//time.Sleep(1 * time.Millisecond)
 		runtime.Gosched()
 		select {
-		case <-b.chSigInt:
-			fmt.Println("main chSigInt")
-			b.terminateMain()
-			break
 		case <-b.chEnd:
 			fmt.Println("main chEnd")
 			b.terminateMain()
