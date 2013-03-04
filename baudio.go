@@ -35,15 +35,15 @@ func (bc *BChannel) push(fn func(float64, int) float64) {
 	bc.funcs = append(bc.funcs, fn)
 }
 
-type bOptions struct {
-	size int
-	rate int
+type BOptions struct {
+	Size int
+	Rate int
 }
 
-func NewBOptions() *bOptions {
-	return &bOptions{
-		size: 2048,
-		rate: 44000,
+func NewBOptions() *BOptions {
+	return &BOptions{
+		Size: 2048,
+		Rate: 44000,
 	}
 }
 
@@ -65,7 +65,7 @@ type B struct {
 	pipeWriter *io.PipeWriter
 }
 
-func New(opts *bOptions, fn func(float64, int) float64) *B {
+func New(opts *BOptions, fn func(float64, int) float64) *B {
 	b := &B{
 		readable:   true,
 		size:       2048,
@@ -82,8 +82,8 @@ func New(opts *bOptions, fn func(float64, int) float64) *B {
 	}
 	b.pipeReader, b.pipeWriter = io.Pipe()
 	if opts != nil {
-		b.size = opts.size
-		b.rate = opts.rate
+		b.size = opts.Size
+		b.rate = opts.Rate
 	}
 	if fn != nil {
 		b.Push(fn)
