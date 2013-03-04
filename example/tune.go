@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	b := baudio.New(func(t float64, i int) float64 {
+	b := baudio.New(nil, func(t float64, i int) float64 {
 		var flag float64
 		if math.Mod(t, 2) > 1 {
 			flag = 1

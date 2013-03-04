@@ -35,6 +35,18 @@ func (bc *BChannel) push(fn func(float64, int) float64) {
 	bc.funcs = append(bc.funcs, fn)
 }
 
+type bOptions struct {
+	size int
+	rate int
+}
+
+func NewBOptions() *bOptions {
+	return &bOptions{
+		size: 2048,
+		rate: 44000,
+	}
+}
+
 type B struct {
 	readable   bool
 	size       int
@@ -53,7 +65,7 @@ type B struct {
 	pipeWriter *io.PipeWriter
 }
 
-func New( /*opts map[string]string*/ fn func(float64, int) float64) *B {
+func New(opts *bOptions, fn func(float64, int) float64) *B {
 	b := &B{
 		readable:   true,
 		size:       2048,
@@ -69,16 +81,10 @@ func New( /*opts map[string]string*/ fn func(float64, int) float64) *B {
 		chNextTick: make(chan bool),
 	}
 	b.pipeReader, b.pipeWriter = io.Pipe()
-	//TODO
-	/*
-		if val, ok := opts["size"]; ok {
-			b.size = val
-		}
-		if val, ok := opts["rate"]; ok {
-			b.rate = val
-		}
-	*/
-
+	if opts != nil {
+		b.size = opts.size
+		b.rate = opts.rate
+	}
 	if fn != nil {
 		b.Push(fn)
 	}
