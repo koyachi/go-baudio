@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os"
+	//"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -279,10 +279,11 @@ func (b *B) runCommand(command string, mergedArgs []string) {
 		fmt.Println("runCommand: before stdin.Close()")
 		stdin.Close()
 	}()
-	//var out bytes.Buffer
-	//cmd.Stdout = &out
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	// TODO: option
+	//cmd.Stdout = os.Stdout
+	//cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		panic(err)
 	}
