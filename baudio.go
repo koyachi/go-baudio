@@ -138,20 +138,20 @@ func (b *B) terminateMain() {
 	b.chEndSox <- true
 }
 
-func (b *B) end() {
+func (b *B) End() {
 	b.ended = true
 }
 
-func (b *B) destroy() {
+func (b *B) Destroy() {
 	b.destroyed = true
 	b.chEnd <- true
 }
 
-func (b *B) pause() {
+func (b *B) Pause() {
 	b.paused = true
 }
 
-func (b *B) resume() {
+func (b *B) Resume() {
 	if !b.paused {
 		return
 	}
