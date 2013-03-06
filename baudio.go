@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	//"os"
-	"os/exec"
 	"runtime"
 	"strconv"
 	//"time"
@@ -63,6 +61,7 @@ type B struct {
 	chNextTick chan bool
 	pipeReader *io.PipeReader
 	pipeWriter *io.PipeWriter
+	sox        *Sox
 }
 
 func New(opts *BOptions, fn func(float64, int) float64) *B {
@@ -245,95 +244,34 @@ func signed(n float64) float64 {
 	return math.Max(-b, math.Ceil(b*n-1))
 }
 
-func mergeArgs(opts, args map[string]string) []string {
-	for k, _ := range opts {
-		args[k] = opts[k]
-	}
-	var resultsLast []string
-	var results []string
-	for k, _ := range args {
-		switch k {
-		case "-":
-			resultsLast = append(resultsLast, k)
-		case "-o":
-			resultsLast = append(resultsLast, k, args[k])
-		default:
-			var dash string
-			if len(k) == 1 {
-				dash = "-"
-			} else {
-				dash = "--"
-			}
-			results = append(results, dash+k, args[k])
-		}
-	}
-	results = append(results, resultsLast...)
-	fmt.Printf("results = %v\n", results)
-	return results
-}
-
-func (b *B) runCommand(command string, mergedArgs []string) {
-	cmd := exec.Command(command, mergedArgs...)
-	pipeWriter, err := cmd.StdinPipe()
-	if err != nil {
-		panic(err)
-	}
-	defer func() {
-		fmt.Println("runCommand: before pipeWriter.Close()")
-		pipeWriter.Close()
-	}()
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	// TODO: option
-	//cmd.Stdout = os.Stdout
-	//cmd.Stderr = os.Stderr
-	if err := cmd.Start(); err != nil {
-		panic(err)
-	}
-	defer func() {
-		if p := cmd.Process; p != nil {
-			fmt.Println("runCommand: before p.Kill()")
-			p.Kill()
-		}
-	}()
-
-	readBuf := make([]byte, b.size*len(b.channels))
-	for {
-		//fmt.Println("play loop header")
-		if _, err := b.pipeReader.Read(readBuf); err != nil {
-			panic(err)
-		}
-		if _, err = pipeWriter.Write(readBuf); err != nil {
-			// TODO: more better error handling
-			if err.Error() == "write |1: broken pipe" {
-				fmt.Printf("ERR: pipeWriter.Write(readBuf): err = %v\n", err)
-				runtime.Gosched()
-				break
-			}
-			panic(err)
-		}
-	}
-}
-
 func (b *B) Play(opts map[string]string) {
-	go b.runCommand("play", mergeArgs(opts, map[string]string{
+	go SoxPlay(mergeArgs(opts, map[string]string{
 		"c": strconv.Itoa(len(b.channels)),
 		"r": strconv.Itoa(b.rate),
 		"t": "s16",
 		"-": "DUMMY",
-	}))
+	}), b.waveReceiver())
 	<-b.chEndSox
 	b.pipeReader.Close()
 }
 
 func (b *B) Record(file string, opts map[string]string) {
-	go b.runCommand("sox", mergeArgs(opts, map[string]string{
-		"c":  strconv.Itoa(len(b.channels)),
-		"r":  strconv.Itoa(b.rate),
-		"t":  "s16",
-		"-":  "DUMMY",
-		"-o": file,
-	}))
+	go SoxRecord(file, mergeArgs(opts, map[string]string{
+		"c": strconv.Itoa(len(b.channels)),
+		"r": strconv.Itoa(b.rate),
+		"t": "s16",
+		"-": "DUMMY",
+	}), b.waveReceiver())
 	<-b.chEndSox
 	b.pipeReader.Close()
+}
+
+func (b *B) waveReceiver() func() []byte {
+	readBuf := make([]byte, b.size*len(b.channels))
+	return func() []byte {
+		if _, err := b.pipeReader.Read(readBuf); err != nil {
+			panic(err)
+		}
+		return readBuf
+	}
 }
