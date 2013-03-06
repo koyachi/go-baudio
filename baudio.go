@@ -137,6 +137,7 @@ func (b *B) terminateMain() {
 	b.chEndSox <- true
 }
 
+// TODO: To Go Style (end,destroy,pause,resume are node.js's Stream interface.)
 func (b *B) End() {
 	b.ended = true
 }
