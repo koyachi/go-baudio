@@ -274,13 +274,13 @@ func mergeArgs(opts, args map[string]string) []string {
 
 func (b *B) runCommand(command string, mergedArgs []string) {
 	cmd := exec.Command(command, mergedArgs...)
-	stdin, err := cmd.StdinPipe()
+	pipeWriter, err := cmd.StdinPipe()
 	if err != nil {
 		panic(err)
 	}
 	defer func() {
-		fmt.Println("runCommand: before stdin.Close()")
-		stdin.Close()
+		fmt.Println("runCommand: before pipeWriter.Close()")
+		pipeWriter.Close()
 	}()
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -303,10 +303,10 @@ func (b *B) runCommand(command string, mergedArgs []string) {
 		if _, err := b.pipeReader.Read(readBuf); err != nil {
 			panic(err)
 		}
-		if _, err = stdin.Write(readBuf); err != nil {
+		if _, err = pipeWriter.Write(readBuf); err != nil {
 			// TODO: more better error handling
 			if err.Error() == "write |1: broken pipe" {
-				fmt.Printf("ERR: stdin.Write(readBuf): err = %v\n", err)
+				fmt.Printf("ERR: pipeWriter.Write(readBuf): err = %v\n", err)
 				runtime.Gosched()
 				break
 			}
