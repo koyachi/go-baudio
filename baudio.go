@@ -165,16 +165,13 @@ func (b *B) AddChannel(funcValueType int, fn func(float64, int) float64) {
 	b.channels = append(b.channels, bc)
 }
 
-func (b *B) PushTo(index int, fn func(float64, int) float64) {
+func (b *B) Push(fn func(float64, int) float64) {
+	index := len(b.channels)
 	if len(b.channels) <= index {
 		bc := newBChannel(FuncValueTypeFloat)
 		b.channels = append(b.channels, bc)
 	}
 	b.channels[index].funcs = append(b.channels[index].funcs, fn)
-}
-
-func (b *B) Push(fn func(float64, int) float64) {
-	b.PushTo(len(b.channels), fn)
 }
 
 func (b *B) loop() {
