@@ -16,20 +16,23 @@ const (
 	FuncValueTypeNotFloat = 1
 )
 
+type GeneratorFunc func(t float64, i int) float64
+type RuntimeOption map[string]string
+
 type BChannel struct {
 	funcValueType int
-	funcs         []func(float64, int) float64
+	funcs         []GeneratorFunc
 }
 
 func newBChannel(fvt int) *BChannel {
 	bc := &BChannel{
 		funcValueType: fvt,
-		funcs:         make([]func(float64, int) float64, 0),
+		funcs:         make([]GeneratorFunc, 0),
 	}
 	return bc
 }
 
-func (bc *BChannel) push(fn func(float64, int) float64) {
+func (bc *BChannel) push(fn GeneratorFunc) {
 	bc.funcs = append(bc.funcs, fn)
 }
 
@@ -64,7 +67,7 @@ type B struct {
 	sox        *Sox
 }
 
-func New(opts *BOptions, fn func(float64, int) float64) *B {
+func New(opts *BOptions, fn GeneratorFunc) *B {
 	b := &B{
 		readable:   true,
 		size:       2048,
@@ -159,13 +162,13 @@ func (b *B) Resume() {
 	b.chResume <- func() {}
 }
 
-func (b *B) AddChannel(funcValueType int, fn func(float64, int) float64) {
+func (b *B) AddChannel(funcValueType int, fn GeneratorFunc) {
 	bc := newBChannel(funcValueType)
 	bc.push(fn)
 	b.channels = append(b.channels, bc)
 }
 
-func (b *B) Push(fn func(float64, int) float64) {
+func (b *B) Push(fn GeneratorFunc) {
 	index := len(b.channels)
 	if len(b.channels) <= index {
 		bc := newBChannel(FuncValueTypeFloat)
@@ -245,8 +248,8 @@ func signed(n float64) float64 {
 	return math.Max(-b, math.Ceil(b*n-1))
 }
 
-func (b *B) Play(opts map[string]string) {
-	go SoxPlay(mergeArgs(opts, map[string]string{
+func (b *B) Play(opts RuntimeOption) {
+	go SoxPlay(mergeArgs(opts, RuntimeOption{
 		"c": strconv.Itoa(len(b.channels)),
 		"r": strconv.Itoa(b.rate),
 		"t": "s16",
@@ -256,8 +259,8 @@ func (b *B) Play(opts map[string]string) {
 	b.pipeReader.Close()
 }
 
-func (b *B) Record(file string, opts map[string]string) {
-	go SoxRecord(file, mergeArgs(opts, map[string]string{
+func (b *B) Record(file string, opts RuntimeOption) {
+	go SoxRecord(file, mergeArgs(opts, RuntimeOption{
 		"c": strconv.Itoa(len(b.channels)),
 		"r": strconv.Itoa(b.rate),
 		"t": "s16",
