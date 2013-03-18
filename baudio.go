@@ -19,20 +19,20 @@ const (
 type GeneratorFunc func(t float64, i int) float64
 type RuntimeOption map[string]string
 
-type BChannel struct {
+type AudioChannel struct {
 	funcValueType int
 	funcs         []GeneratorFunc
 }
 
-func newBChannel(fvt int) *BChannel {
-	bc := &BChannel{
+func newAudioChannel(fvt int) *AudioChannel {
+	bc := &AudioChannel{
 		funcValueType: fvt,
 		funcs:         make([]GeneratorFunc, 0),
 	}
 	return bc
 }
 
-func (bc *BChannel) push(fn GeneratorFunc) {
+func (bc *AudioChannel) push(fn GeneratorFunc) {
 	bc.funcs = append(bc.funcs, fn)
 }
 
@@ -57,7 +57,7 @@ type B struct {
 	paused     bool
 	ended      bool
 	destroyed  bool
-	channels   []*BChannel
+	channels   []*AudioChannel
 	chEnd      chan bool
 	chEndSox   chan bool
 	chResume   chan func()
@@ -163,7 +163,7 @@ func (b *B) Resume() {
 }
 
 func (b *B) AddChannel(funcValueType int, fn GeneratorFunc) {
-	bc := newBChannel(funcValueType)
+	bc := newAudioChannel(funcValueType)
 	bc.push(fn)
 	b.channels = append(b.channels, bc)
 }
@@ -171,7 +171,7 @@ func (b *B) AddChannel(funcValueType int, fn GeneratorFunc) {
 func (b *B) Push(fn GeneratorFunc) {
 	index := len(b.channels)
 	if len(b.channels) <= index {
-		bc := newBChannel(FuncValueTypeFloat)
+		bc := newAudioChannel(FuncValueTypeFloat)
 		b.channels = append(b.channels, bc)
 	}
 	b.channels[index].funcs = append(b.channels[index].funcs, fn)
