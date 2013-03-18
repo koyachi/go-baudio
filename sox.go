@@ -70,7 +70,7 @@ func SoxRecord(file string, opts []string, fn func() []byte) (*Sox, error) {
 	return NewSox("sox", opts, fn)
 }
 
-func mergeArgs(opts, args map[string]string) []string {
+func mergeArgs(opts, args RuntimeOption) []string {
 	for k, _ := range opts {
 		args[k] = opts[k]
 	}
