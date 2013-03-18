@@ -36,13 +36,13 @@ func (bc *AudioChannel) push(fn GeneratorFunc) {
 	bc.funcs = append(bc.funcs, fn)
 }
 
-type BOptions struct {
+type AudioBufferOption struct {
 	Size int
 	Rate int
 }
 
-func NewBOptions() *BOptions {
-	return &BOptions{
+func NewAudioBufferOption() *AudioBufferOption {
+	return &AudioBufferOption{
 		Size: 2048,
 		Rate: 44000,
 	}
@@ -67,7 +67,7 @@ type B struct {
 	sox        *Sox
 }
 
-func New(opts *BOptions, fn GeneratorFunc) *B {
+func New(opts *AudioBufferOption, fn GeneratorFunc) *B {
 	b := &B{
 		readable:   true,
 		size:       2048,
