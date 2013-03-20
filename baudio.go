@@ -25,15 +25,15 @@ type AudioChannel struct {
 }
 
 func newAudioChannel(fvt int) *AudioChannel {
-	bc := &AudioChannel{
+	ac := &AudioChannel{
 		funcValueType: fvt,
 		funcs:         make([]GeneratorFunc, 0),
 	}
-	return bc
+	return ac
 }
 
-func (bc *AudioChannel) push(fn GeneratorFunc) {
-	bc.funcs = append(bc.funcs, fn)
+func (ac *AudioChannel) push(fn GeneratorFunc) {
+	ac.funcs = append(ac.funcs, fn)
 }
 
 type AudioBufferOption struct {
@@ -163,16 +163,16 @@ func (b *B) Resume() {
 }
 
 func (b *B) AddChannel(funcValueType int, fn GeneratorFunc) {
-	bc := newAudioChannel(funcValueType)
-	bc.push(fn)
-	b.channels = append(b.channels, bc)
+	ac := newAudioChannel(funcValueType)
+	ac.push(fn)
+	b.channels = append(b.channels, ac)
 }
 
 func (b *B) Push(fn GeneratorFunc) {
 	index := len(b.channels)
 	if len(b.channels) <= index {
-		bc := newAudioChannel(FuncValueTypeFloat)
-		b.channels = append(b.channels, bc)
+		ac := newAudioChannel(FuncValueTypeFloat)
+		b.channels = append(b.channels, ac)
 	}
 	b.channels[index].funcs = append(b.channels[index].funcs, fn)
 }
